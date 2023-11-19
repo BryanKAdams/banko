@@ -69,6 +69,7 @@ constructor(
                 currentScore = _uiState.value.game?.round?.currentPoints ?: 0,
                 fullOrderedPlayerList = _uiState.value.game?.orderedPlayerNames ?: emptyList(),
                 nextRoundNum = (_uiState.value.game?.round?.roundNum?.plus(1)) ?: 0,
+                currentRoll = _uiState.value.game?.round?.roll ?: 0,
             )
 
         }

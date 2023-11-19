@@ -45,7 +45,8 @@ class GameRepository(
         remainingPlayers: List<String>,
         currentScore: Int,
         nextRoundNum: Int,
-        fullOrderedPlayerList: List<String>
+        fullOrderedPlayerList: List<String>,
+        currentRoll: Int,
     ) {
         val db = FirebaseFirestore.getInstance()
 
@@ -79,7 +80,7 @@ class GameRepository(
                     currentScore,
                     0,
                     0,
-                    1,
+                    currentRoll,
                     activeOrderedPlayerNames = remainingPlayers
                 ),
                 "currentPlayer",

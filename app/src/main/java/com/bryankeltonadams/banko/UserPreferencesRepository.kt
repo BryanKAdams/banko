@@ -18,6 +18,16 @@ class UserPreferencesRepository @Inject constructor(
             SessionPreferences(preferences)
         }
 
+
+    suspend fun setPreferences(name: String, gameCode: String) {
+        dataStoreManager.sessionDataStore.updateData { preferences ->
+            preferences.toMutablePreferences().apply {
+                this[SessionPreferences.NAME] = name
+                this[SessionPreferences.GAME_CODE] = gameCode
+            }
+        }
+    }
+
     suspend fun setName(name: String) {
         dataStoreManager.sessionDataStore.updateData { preferences ->
             preferences.toMutablePreferences().apply {

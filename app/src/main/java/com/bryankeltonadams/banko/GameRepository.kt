@@ -6,31 +6,25 @@ import com.bryankeltonadams.data.model.DomainGame
 import com.bryankeltonadams.data.model.FirebaseGame
 import com.bryankeltonadams.data.model.Player
 import com.bryankeltonadams.data.model.Round
-import com.bryankeltonadams.data.model.Test
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.toObject
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.round
 
 
 @Singleton
 class GameRepository(
 ) {
+    private val db = FirebaseFirestore.getInstance()
 
     suspend fun deleteGame(gameCode: String) {
-        val db = FirebaseFirestore.getInstance()
-
         val gameDocRef = db.collection("games").document(gameCode)
 
-        //delete subdocument players
         val players = gameDocRef.collection("players").get().await()
         players.forEach { player ->
             gameDocRef.collection("players").document(player.id).delete().await()
@@ -44,23 +38,21 @@ class GameRepository(
         currentPlayer: String,
         remainingPlayers: List<String>,
         currentScore: Int,
-        nextRoundNum: Int,
         fullOrderedPlayerList: List<String>,
-        currentRoll: Int,
     ) {
-        val db = FirebaseFirestore.getInstance()
-
         val gameDocRef = db.collection("games").document(gameCode)
-
-        val currentPlayerDocRef =
-            db.collection("games").document(gameCode).collection("players").document(currentPlayer)
+        val currentPlayerDocRef = gameDocRef.collection("players").document(currentPlayer)
 
         currentPlayerDocRef.update("points", FieldValue.increment(currentScore.toDouble())).await()
 
         if (remainingPlayers.isEmpty()) {
             gameDocRef.update(
-                "round",
-                Round(nextRoundNum, 0, 0, 0, 1, activeOrderedPlayerNames = fullOrderedPlayerList)
+                "round.nextRoundNum", FieldValue.increment(1),
+                "round.currentScore", 0,
+                "round.0", 0,
+                "round.0", 0,
+                "round.currentRoll", 1,
+                "round.activeOrderedPlayerNames", fullOrderedPlayerList
             ).await()
 
             val myIndexInOrderedList = fullOrderedPlayerList.indexOf(currentPlayer)
@@ -74,35 +66,16 @@ class GameRepository(
                 remainingPlayers.getOrNull(myIndexInOrderedList + 1)
                     ?: remainingPlayers[0]
             gameDocRef.update(
-                "round",
-                Round(
-                    nextRoundNum - 1,
-                    currentScore,
-                    0,
-                    0,
-                    currentRoll,
-                    activeOrderedPlayerNames = remainingPlayers
-                ),
-                "currentPlayer",
-                nextPlayerInOrderedList
+                "round.activeOrderedPlayerNames", remainingPlayers,
+                "currentPlayer", nextPlayerInOrderedList
             ).await()
         }
-    }
-
-    fun endTurn(nextPlayer: String) {
-        val db = FirebaseFirestore.getInstance()
-
-        val gameDoc = db.collection("games").document("gameCode")
-
-        gameDoc.update("currentPlayer", nextPlayer)
-
     }
 
     suspend fun rollDice(
         gameCode: String,
         currentRoll: Int,
         currentScore: Int,
-        currentPlayer: String,
         nextPlayer: String,
         dice: Pair<Int, Int>,
         roundNum: Int,
@@ -110,20 +83,11 @@ class GameRepository(
         fullOrderedPlayerNames: List<String>,
         manuallyEntered: Int? = null
     ) {
-        val db = FirebaseFirestore.getInstance()
-
         val gameDocRef = db.collection("games").document(gameCode)
 
         gameDocRef.update(
-            "round",
-            Round(
-                roundNum,
-                currentPoints = currentScore,
-                0,
-                0,
-                currentRoll,
-                activeOrderedPlayerNames
-            )
+            "round.dieOne", 0,
+            "round.dieTwo", 0
         ).await()
 
 
@@ -180,16 +144,13 @@ class GameRepository(
     }
 
 
-    suspend fun startGame(gameCode: String, activeOrderedPlayerNames: List<String>) {
-        val db = FirebaseFirestore.getInstance()
-
+    fun startGame(gameCode: String, activeOrderedPlayerNames: List<String>) {
         val gameDocRef = db.collection("games").document(gameCode)
 
         gameDocRef.update("round", Round(1, 0, 0, 0, 1, activeOrderedPlayerNames))
     }
 
     suspend fun createGame(name: String): String {
-        val db = FirebaseFirestore.getInstance()
         val gameCode = generateValidGameCode()
         val player = Player(
             name = name,
@@ -218,8 +179,6 @@ class GameRepository(
 
     suspend fun getGame(gameCode: String): Flow<DomainGame> {
         return callbackFlow {
-
-            val db = FirebaseFirestore.getInstance()
 
             val gameDocRef = db.collection("games").document(gameCode)
 
@@ -272,8 +231,6 @@ class GameRepository(
     }
 
     suspend fun gameExists(gameCode: String): Boolean {
-        val db = FirebaseFirestore.getInstance()
-
         val docRef = db.collection("games").document(gameCode)
 
         val snapshot = docRef.get().await()
@@ -281,17 +238,13 @@ class GameRepository(
         return snapshot.exists()
     }
 
-    suspend fun updatePlayerOrder(gameCode: String, playerNames: List<String>) {
-        val db = FirebaseFirestore.getInstance()
-
+    fun updatePlayerOrder(gameCode: String, playerNames: List<String>) {
         val gameDocRef = db.collection("games").document(gameCode)
 
         gameDocRef.update("orderedPlayerNames", playerNames)
     }
 
-    suspend fun addPlayer(player: Player, gameCode: String) {
-        val db = FirebaseFirestore.getInstance()
-
+    fun addPlayer(player: Player, gameCode: String) {
         val gameDocRef = db.collection("games").document(gameCode)
 
         gameDocRef.update("orderedPlayerNames", FieldValue.arrayUnion(player.name))
@@ -303,7 +256,6 @@ class GameRepository(
 
 
     private suspend fun generateValidGameCode(): String {
-        val db = FirebaseFirestore.getInstance()
         var gameCode = generate5DigitAlphaNumericCode()
         var docRef = db.collection("games").document(gameCode)
         var checkGameCode = true

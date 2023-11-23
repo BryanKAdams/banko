@@ -33,30 +33,30 @@ class BankoStartScreenViewModel
     val bankoStartScreenUiState = _bankoStartScreenUiState.asStateFlow()
 
     fun onUpdateUserName(userName: String) {
-        _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(userName = userName)
+        _bankoStartScreenUiState.value = _bankoStartScreenUiState.value.copy(userName = userName)
     }
 
     fun onUpdateGameCode(gameCode: String) {
-        _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(gameCode = gameCode)
+        _bankoStartScreenUiState.value = _bankoStartScreenUiState.value.copy(gameCode = gameCode)
     }
-
 
     fun createGame() {
         viewModelScope.launch {
-            onUpdateGameCode(gameRepository.createGame(_bankoStartScreenUiState.value.userName))
-            userPreferencesRepository.setName(_bankoStartScreenUiState.value.userName)
-            userPreferencesRepository.setGameCode(_bankoStartScreenUiState.value.gameCode)
+            val userName = _bankoStartScreenUiState.value.userName
+            val gameCode = gameRepository.createGame(userName)
+
+            userPreferencesRepository.setPreferences(userName, gameCode)
+
             _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(
+                gameCode = gameCode,
                 joinedGameIsValid = true
             )
-
         }
     }
 
     fun resetErrorMessage() {
-        _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(errorMessage = null)
+        _bankoStartScreenUiState.value = _bankoStartScreenUiState.value.copy(errorMessage = null)
     }
-
 
     fun joinGame() {
         viewModelScope.launch {
@@ -67,8 +67,10 @@ class BankoStartScreenViewModel
                     player,
                     _bankoStartScreenUiState.value.gameCode
                 )
-                userPreferencesRepository.setName(_bankoStartScreenUiState.value.userName)
-                userPreferencesRepository.setGameCode(_bankoStartScreenUiState.value.gameCode)
+                userPreferencesRepository.setPreferences(
+                    _bankoStartScreenUiState.value.userName,
+                    _bankoStartScreenUiState.value.gameCode
+                )
                 _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(
                     joinedGameIsValid = true
                 )
@@ -81,7 +83,7 @@ class BankoStartScreenViewModel
     }
 
     fun resetGameValidity() {
-        _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(
+        _bankoStartScreenUiState.value = _bankoStartScreenUiState.value.copy(
             joinedGameIsValid = false
         )
     }

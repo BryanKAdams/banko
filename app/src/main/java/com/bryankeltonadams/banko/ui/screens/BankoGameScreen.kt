@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,13 +13,11 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -31,12 +28,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,8 +72,14 @@ fun BankoGameScreen(
 @Composable
 fun FourByThreeBoxGrid(rollNumber: Int = 1, onManuallyEnteredDice: (Int) -> Unit = {}) {
     val rollNumberGreaterThan3 = rollNumber > 3
+    val enabledList =
+        if (rollNumberGreaterThan3) listOf(3, 4, 5, 6, 7, 8, 9, 10, 11, 13) else listOf(
+            2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        )
+
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .height(200.dp)
             .padding(
                 WindowInsets.navigationBars
@@ -87,124 +87,38 @@ fun FourByThreeBoxGrid(rollNumber: Int = 1, onManuallyEnteredDice: (Int) -> Unit
                     .asPaddingValues()
             )
     ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
-        ) {
-            Button(
-                onClick = { onManuallyEnteredDice(2) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp),
-                enabled = !rollNumberGreaterThan3
+        (2..12 step 4).forEach { row ->
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
             ) {
-                Text(text = "2")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(3) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "3")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(4) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "4")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(5) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "5")
-            }
-        }
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
-        ) {
-            Button(
-                onClick = { onManuallyEnteredDice(6) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "6")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(7) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp),
-                colors = ButtonDefaults.buttonColors(
-                    if (rollNumberGreaterThan3) Color.Red else ButtonDefaults.buttonColors().containerColor,
-                )
+                (row until row + 4).forEach { i ->
+                    val isEnabled = (i in enabledList) || (i == 13 && rollNumberGreaterThan3)
+                    val buttonColor =
+                        if (i == 7 && rollNumberGreaterThan3) Color.Red else ButtonDefaults.buttonColors().containerColor
 
-            ) {
-                Text(text = "7")
+                    Button(
+                        onClick = { onManuallyEnteredDice(i) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(3.dp),
+                        enabled = isEnabled,
+                        colors = ButtonDefaults.buttonColors(buttonColor)
+                    ) {
+                        if (i == 13) {
+                            Text(text = "Doubles", fontSize = 8.sp, maxLines = 1)
+                        } else {
+                            Text(text = i.toString())
+                        }
+                    }
+                }
             }
-            Button(
-                onClick = { onManuallyEnteredDice(8) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "8")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(9) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "9")
-            }
-        }
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
-        ) {
-            Button(
-                onClick = { onManuallyEnteredDice(10) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp)
-            ) {
-                Text(text = "10")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(11) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp),
-            ) {
-                Text(text = "11")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(12) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp),
-                enabled = !rollNumberGreaterThan3
-            ) {
-                Text(text = "12")
-            }
-            Button(
-                onClick = { onManuallyEnteredDice(13) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(3.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(text = "Doubles", fontSize = 8.sp, maxLines = 1)
-            }
-
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -234,9 +148,6 @@ fun BankoGameScreen(
     val isHost = hostPlayer?.name == uiState.playerName
     val isStarted = uiState.game?.round != null
 
-    val isSelfActive =
-        uiState.game?.round?.activeOrderedPlayerNames?.contains(uiState.playerName)
-            ?: false
 
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Expanded
@@ -254,8 +165,7 @@ fun BankoGameScreen(
                     Button(
                         modifier = Modifier
                             .height(48.dp)
-                            .fillMaxWidth(),
-                        onClick = onStartGame
+                            .fillMaxWidth(), onClick = onStartGame
                     ) {
                         Text(text = "Start Game", style = MaterialTheme.typography.labelLarge)
                     }
@@ -263,7 +173,7 @@ fun BankoGameScreen(
                 }
                 if (isStarted) {
                     Button(
-                        enabled = isSelfActive,
+                        enabled = isPlayerActive(uiState, uiState.playerName),
                         modifier = Modifier
                             .height(48.dp)
                             .fillMaxWidth(),
@@ -316,14 +226,11 @@ fun BankoGameScreen(
                 }
             }
             Column() {
-                uiState.game?.players?.forEach {
-                    val isPlayerActive =
-                        uiState.game.round?.activeOrderedPlayerNames?.contains(it.name)
-                            ?: false
+                uiState.game?.players?.forEach { player ->
                     Row(
                         modifier = Modifier
                             .background(
-                                if (isPlayerActive) Color.Red else Color.Gray
+                                if (isPlayerActive(uiState, player.name)) Color.Red else Color.Gray
                             )
                             .fillMaxWidth()
                             .padding(8.dp),
@@ -331,11 +238,11 @@ fun BankoGameScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = it.name,
+                            text = player.name,
                             textAlign = TextAlign.Center,
                             fontSize = 24.sp,
                         )
-                        if (it == hostPlayer) {
+                        if (player == hostPlayer) {
                             Icon(
                                 modifier = Modifier,
                                 imageVector = Icons.Default.Star,
@@ -346,7 +253,7 @@ fun BankoGameScreen(
 
                         if (isStarted) {
                             Text(
-                                text = it.points.toString(),
+                                text = player.points.toString(),
                                 fontSize = 24.sp,
                                 modifier = Modifier.padding(horizontal = 8.dp)
                             )
@@ -358,20 +265,17 @@ fun BankoGameScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 32.dp)
-            )
-            {
+            ) {
                 if (!isStarted) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(200.dp),
-                        strokeWidth = 20.dp
+                        modifier = Modifier.size(200.dp), strokeWidth = 20.dp
                     )
                     Text(text = "Waiting for host to start game")
                 } else {
                     Text(text = "Round: ${uiState.game?.round?.roundNum} / ${uiState.game?.endRoundNum}")
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(
-                            16.dp,
-                            Alignment.CenterHorizontally
+                            16.dp, Alignment.CenterHorizontally
                         )
                     ) {
                         Box(
@@ -415,25 +319,22 @@ fun BankoGameScreen(
 
 }
 
+private fun isPlayerActive(uiState: BankoGameScreenUiState, playerName: String): Boolean {
+    return uiState.game?.round?.activeOrderedPlayerNames?.contains(playerName) ?: false
+}
+
 
 @Preview
 @Composable
 fun BankoGameScreenPreview() {
     BankoGameScreen(
         BankoGameScreenUiState(
-            "1234",
-            "Bryan",
-            DomainGame(
-                Timestamp.now(),
-                joinCode = "1234",
-                players = listOf(
+            "1234", "Bryan", DomainGame(
+                Timestamp.now(), joinCode = "1234", players = listOf(
                     Player("Bryan", 0),
                     Player("Sarah", 0),
                     Player("Maddie", 0),
-                ),
-                round = null,
-                host = "Bryan",
-                currentPlayer = "Bryan"
+                ), round = null, host = "Bryan", currentPlayer = "Bryan"
             )
         )
     )

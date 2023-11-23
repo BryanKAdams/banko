@@ -1,19 +1,16 @@
 package com.bryankeltonadams.banko.ui.screens
 
-import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bryankeltonadams.banko.GameRepository
 import com.bryankeltonadams.banko.UserPreferencesRepository
-import com.bryankeltonadams.data.model.Player
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.math.log
 import kotlin.random.Random
 
 @HiltViewModel
@@ -68,8 +65,6 @@ constructor(
                 ) ?: emptyList(),
                 currentScore = _uiState.value.game?.round?.currentPoints ?: 0,
                 fullOrderedPlayerList = _uiState.value.game?.orderedPlayerNames ?: emptyList(),
-                nextRoundNum = (_uiState.value.game?.round?.roundNum?.plus(1)) ?: 0,
-                currentRoll = _uiState.value.game?.round?.roll ?: 0,
             )
 
         }
@@ -103,7 +98,6 @@ constructor(
             gameRepository.rollDice(
                 gameCode = _uiState.value.gameCode,
                 currentRoll = _uiState.value.game?.round?.roll ?: 0,
-                currentPlayer = _uiState.value.playerName,
                 nextPlayer = nextPlayer!!,
                 dice = Pair(dieOne, dieTwo),
                 roundNum = _uiState.value.game?.round?.roundNum ?: 0,

@@ -251,7 +251,7 @@ fun BankoGameScreen(
                     Spacer(modifier = Modifier.height(48.dp))
                     if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)) {
                         FourByThreeBoxGrid(
-                            rollNumber = uiState.game?.round?.roll ?: 0,
+                            rollNumber = uiState.game?.round?.currentRoll ?: 0,
                             onManuallyEnteredDice = onManuallyEnteredDice
                         )
 

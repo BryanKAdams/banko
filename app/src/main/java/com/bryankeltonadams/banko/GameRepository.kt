@@ -104,9 +104,12 @@ class GameRepository(
             gameDocRef.update("currentPlayer", nextPlayerInOrderedList)
         } else {
             val myIndexInOrderedList = remainingPlayers.indexOf(currentPlayer)
-            val nextPlayerInOrderedList =
-                remainingPlayers.getOrNull(myIndexInOrderedList + 1)
-                    ?: remainingPlayers[0]
+            var nextPlayerInOrderedList = currentPlayer
+            if (currentPlayer in bankingPlayers) {
+                nextPlayerInOrderedList =
+                    remainingPlayers.getOrNull(myIndexInOrderedList + 1)
+                        ?: remainingPlayers[0]
+            }
             gameDocRef.update(
                 "round.activeOrderedPlayerNames", remainingPlayers,
                 "currentPlayer", nextPlayerInOrderedList

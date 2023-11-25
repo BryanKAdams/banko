@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bryankeltonadams.banko.GameRepository
 import com.bryankeltonadams.banko.UserPreferencesRepository
-import com.bryankeltonadams.data.model.Player
 import com.bryankeltonadams.data.model.Round
 import com.bryankeltonadams.data.model.Setting
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -111,7 +109,7 @@ class BankoGameScreenViewModel
 
         viewModelScope.launch {
             val playerPosition =
-                _uiState.value.game?.orderedPlayerNames?.indexOf(_uiState.value.game?.currentPlayer)
+                _uiState.value.game?.round?.activeOrderedPlayerNames?.indexOf(_uiState.value.game?.currentPlayer)
             val nextPlayerPosition = (playerPosition?.plus(1)
                 ?: 0) % (_uiState.value.game?.round!!.activeOrderedPlayerNames.size)
             val nextPlayer =
@@ -119,7 +117,7 @@ class BankoGameScreenViewModel
                     ?: _uiState.value.game?.round?.activeOrderedPlayerNames?.get(0)
 
 
-            val isBeforeFirstThreeRolls = _uiState.value.game!!.round!!.roll <= 3
+            val isBeforeFirstThreeRolls = _uiState.value.game!!.round!!.currentRoll <= 3
             var cumulativeDiceValue = dieOne + dieTwo
             if (manuallyEntered != null) {
                 cumulativeDiceValue = manuallyEntered
@@ -134,7 +132,7 @@ class BankoGameScreenViewModel
             }
 
             var finalRoundNum = _uiState.value.game?.round?.roundNum ?: 0
-            var finalRoll = _uiState.value.game?.round?.roll ?: 0
+            var finalRoll = _uiState.value.game?.round?.currentRoll ?: 0
             var finalActiveOrderedPlayerNames = _uiState.value.game?.round?.activeOrderedPlayerNames
             var nextPlayerName = nextPlayer
 
@@ -142,8 +140,11 @@ class BankoGameScreenViewModel
                 finalRoundNum++
                 finalRoll = 1
                 finalActiveOrderedPlayerNames = _uiState.value.game?.orderedPlayerNames
-                val newNextPlayerPosition =
-                    (playerPosition?.plus(1) ?: 0) % (finalActiveOrderedPlayerNames!!.size)
+
+                val newPlayerPosition =
+                    finalActiveOrderedPlayerNames?.indexOf(_uiState.value.game?.currentPlayer)
+                val newNextPlayerPosition = (newPlayerPosition?.plus(1)
+                    ?: 0) % (finalActiveOrderedPlayerNames?.size!!)
                 nextPlayerName = finalActiveOrderedPlayerNames.getOrNull(newNextPlayerPosition)
                     ?: finalActiveOrderedPlayerNames[0]
             } else {

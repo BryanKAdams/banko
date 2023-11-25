@@ -48,6 +48,6 @@ data class Round(
     val currentPoints: Int = 0,
     val dieOne: Int = 0,
     val dieTwo: Int = 0,
-    val roll: Int = 0,
+    val currentRoll: Int = 0,
     val activeOrderedPlayerNames: List<String> = emptyList(),
 )

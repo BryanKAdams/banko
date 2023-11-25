@@ -47,7 +47,7 @@ class GameRepository(
 
         if (remainingPlayers.isEmpty()) {
             gameDocRef.update(
-                "round.nextRoundNum", FieldValue.increment(1),
+                "round.roundNum", FieldValue.increment(1),
                 "round.currentScore", 0,
                 "round.0", 0,
                 "round.0", 0,

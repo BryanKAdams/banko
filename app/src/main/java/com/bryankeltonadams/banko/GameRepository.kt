@@ -6,6 +6,7 @@ import com.bryankeltonadams.data.model.DomainGame
 import com.bryankeltonadams.data.model.FirebaseGame
 import com.bryankeltonadams.data.model.Player
 import com.bryankeltonadams.data.model.Round
+import com.bryankeltonadams.data.model.Setting
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -33,24 +34,65 @@ class GameRepository(
         gameDocRef.delete().await()
     }
 
+    suspend fun updateSetting(gameCode: String, settingToUpdate: Setting) {
+        val gameDocRef = db.collection("games").document(gameCode)
+
+        // Fetch the current array of settings
+        val documentSnapshot = gameDocRef.get().await()
+
+        // Check if the document exists
+        if (documentSnapshot.exists()) {
+            val game = documentSnapshot.toObject<FirebaseGame>()
+            // Get the current data as a Map
+
+            // Get the current array of settings
+            val currentSettings =
+                (game?.settings as? MutableList<Setting> ?: emptyList()).toMutableList()
+
+            // Find the index of the setting to update
+            val indexToUpdate = currentSettings.indexOfFirst { it.name == settingToUpdate.name }
+
+            // If the setting is found, update its value
+            if (indexToUpdate != -1) {
+                currentSettings[indexToUpdate] = settingToUpdate
+            } else {
+                // Handle the case where the setting is not found
+                // or you may choose to add it as a new setting
+                currentSettings.add(settingToUpdate)
+            }
+
+            // Update the entire document with the modified array
+            gameDocRef.update("settings", currentSettings).await()
+        } else {
+            // Handle the case where the document doesn't exist
+            println("Document does not exist.")
+        }
+    }
+
     suspend fun bankPoints(
         gameCode: String,
         currentPlayer: String,
+        bankingPlayers: List<String>,
         remainingPlayers: List<String>,
-        currentScore: Int,
+        currentPoints: Int,
         fullOrderedPlayerList: List<String>,
     ) {
         val gameDocRef = db.collection("games").document(gameCode)
-        val currentPlayerDocRef = gameDocRef.collection("players").document(currentPlayer)
 
-        currentPlayerDocRef.update("points", FieldValue.increment(currentScore.toDouble())).await()
+        bankingPlayers.forEach { bankingPlayer ->
+
+            val bankingPlayerDocRef = gameDocRef.collection("players").document(bankingPlayer)
+            bankingPlayerDocRef.update("points", FieldValue.increment(currentPoints.toDouble()))
+                .await()
+
+        }
 
         if (remainingPlayers.isEmpty()) {
             gameDocRef.update(
                 "round.roundNum", FieldValue.increment(1),
-                "round.currentScore", 0,
-                "round.0", 0,
-                "round.0", 0,
+                "round.currentPoints", 0,
+                "round.dieOne", 0,
+                "round.dieTwo", 0,
                 "round.currentRoll", 1,
                 "round.activeOrderedPlayerNames", fullOrderedPlayerList
             ).await()
@@ -74,14 +116,8 @@ class GameRepository(
 
     suspend fun rollDice(
         gameCode: String,
-        currentRoll: Int,
-        currentScore: Int,
-        nextPlayer: String,
-        dice: Pair<Int, Int>,
-        roundNum: Int,
-        activeOrderedPlayerNames: List<String>,
-        fullOrderedPlayerNames: List<String>,
-        manuallyEntered: Int? = null
+        round: Round,
+        nextPlayerName: String
     ) {
         val gameDocRef = db.collection("games").document(gameCode)
 
@@ -89,58 +125,8 @@ class GameRepository(
             "round.dieOne", 0,
             "round.dieTwo", 0
         ).await()
-
-
-        val isBeforeFirstThreeRolls = currentRoll <= 3
-
-
-        var cumulativeDiceValue = dice.first + dice.second
-
-        if (manuallyEntered != null) {
-            cumulativeDiceValue = manuallyEntered
-        }
-
-        var pointValueToAdd = if (isBeforeFirstThreeRolls) {
-            if (cumulativeDiceValue == 7) {
-                70
-            } else {
-                cumulativeDiceValue
-            }
-        } else {
-            if (cumulativeDiceValue == 7) {
-                0
-            } else if (dice.first == dice.second || manuallyEntered == 13) {
-                currentScore
-            } else {
-                cumulativeDiceValue
-            }
-        }
-
-
-        var finalRoundNum = roundNum
-        var finalRoll = currentRoll
-        var finalActiveOrderedPlayerNames = activeOrderedPlayerNames
-        if (pointValueToAdd == 0) {
-            finalRoundNum += 1
-            finalRoll = 1
-            finalActiveOrderedPlayerNames = fullOrderedPlayerNames
-
-        } else {
-            pointValueToAdd += currentScore
-            finalRoll += 1
-        }
-
-        val currentRound =
-            Round(
-                finalRoundNum,
-                pointValueToAdd,
-                if (manuallyEntered != null) 0 else dice.first,
-                if (manuallyEntered != null) 0 else dice.second,
-                finalRoll,
-                activeOrderedPlayerNames = finalActiveOrderedPlayerNames
-            )
-        gameDocRef.update("round", currentRound).await()
-        gameDocRef.update("currentPlayer", nextPlayer).await()
+        gameDocRef.update("round", round).await()
+        gameDocRef.update("currentPlayer", nextPlayerName).await()
     }
 
 
@@ -150,8 +136,7 @@ class GameRepository(
         gameDocRef.update("round", Round(1, 0, 0, 0, 1, activeOrderedPlayerNames))
     }
 
-    suspend fun createGame(name: String): String {
-        val gameCode = generateValidGameCode()
+    fun createGame(gameCode: String, name: String): String {
         val player = Player(
             name = name,
             points = 0,
@@ -164,7 +149,13 @@ class GameRepository(
             endRoundNum = 10,
             orderedPlayerNames = listOf(name),
             host = name,
-            currentPlayer = name
+            currentPlayer = name,
+            settings = listOf(
+                Setting(
+                    "Host can roll or bank for other players with devices.",
+                    "true"
+                )
+            )
         )
 
 
@@ -227,6 +218,7 @@ class GameRepository(
             orderedPlayerNames = firebaseGame.orderedPlayerNames,
             host = firebaseGame.host,
             currentPlayer = firebaseGame.currentPlayer,
+            settings = firebaseGame.settings
         )
     }
 
@@ -252,33 +244,5 @@ class GameRepository(
         db.collection("games").document(gameCode).collection("players").document(player.name)
             .set(player)
 
-    }
-
-
-    private suspend fun generateValidGameCode(): String {
-        var gameCode = generate5DigitAlphaNumericCode()
-        var docRef = db.collection("games").document(gameCode)
-        var checkGameCode = true
-        while (checkGameCode) {
-            docRef.get()
-                .addOnSuccessListener { document ->
-                    if (document.exists()) {
-                        gameCode = generate5DigitAlphaNumericCode()
-                        docRef = db.collection("games").document(gameCode)
-                    } else {
-                        checkGameCode = false
-                        return@addOnSuccessListener
-                    }
-                }
-                .await()
-        }
-        return gameCode
-    }
-
-    private fun generate5DigitAlphaNumericCode(): String {
-        val allowedChars = ('A'..'Z') + ('0'..'9')
-        return (1..5)
-            .map { allowedChars.random() }
-            .joinToString("")
     }
 }

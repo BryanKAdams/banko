@@ -1,6 +1,7 @@
 package com.bryankeltonadams.banko.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +39,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,12 +50,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bryankeltonadams.data.model.DomainGame
 import com.bryankeltonadams.data.model.Player
+import com.bryankeltonadams.data.model.Setting
 import com.google.firebase.Timestamp
 
 data class BankoGameScreenUiState(
     val gameCode: String = "",
     val playerName: String = "",
     val game: DomainGame? = null,
+    val bankList: List<String> = emptyList(),
 )
 
 @Composable
@@ -66,6 +73,9 @@ fun BankoGameScreen(
         onBank = bankoGameScreenViewModel::onBank,
         onGameFinished = { bankoGameScreenViewModel.onGameFinished(); navigateBack() },
         onManuallyEnteredDice = bankoGameScreenViewModel::onDiceRolled,
+        onSettingChanged = bankoGameScreenViewModel::onSettingChanged,
+        updatePlayerBankList = bankoGameScreenViewModel::updatePlayerBankList,
+        onGlobalBankClicked = bankoGameScreenViewModel::onGlobalBankClicked,
     )
 }
 
@@ -127,11 +137,15 @@ fun BankoGameScreen(
     onStartGame: () -> Unit = {},
     updatePlayerOrder: () -> Unit = {},
     onDiceRolled: () -> Unit = {},
-    onBank: () -> Unit = {},
+    onBank: (String, List<String>) -> Unit = { s: String, strings: List<String> -> },
     onGameFinished: () -> Unit = {},
     onManuallyEnteredDice: (Int) -> Unit = {},
+    onSettingChanged: (Setting) -> Unit,
+    updatePlayerBankList: (String) -> Unit = {},
+    onGlobalBankClicked: () -> Unit = {},
 ) {
 
+    val showPlayerPickerDialog = remember { mutableStateOf(false) }
 
     if (uiState.game?.round?.roundNum != null && uiState.game.round.roundNum > uiState.game.endRoundNum) {
         LaunchedEffect(Unit) {
@@ -160,6 +174,47 @@ fun BankoGameScreen(
         scaffoldState = bottomSheetScaffoldState,
         sheetPeekHeight = 148.dp,
         sheetContent = {
+            if (showPlayerPickerDialog.value) {
+                AlertDialog(
+                    onDismissRequest = { showPlayerPickerDialog.value = false },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onGlobalBankClicked()
+                                showPlayerPickerDialog.value = false
+                            }
+                        ) {
+                            Text(text = "¡Banko! for selected players")
+                        }
+                    },
+                    title = { Text(text = "Pick a player to ¡Banko! for") },
+                    text = {
+                        Column {
+                            uiState.game?.players?.forEach { player ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                        .clickable {
+                                            updatePlayerBankList(player.name)
+                                        }, // Add clickable modifier here
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = player.name)
+                                    Checkbox(
+                                        checked = uiState.bankList.contains(player.name),
+                                        onCheckedChange = { checkValue ->
+                                            updatePlayerBankList(player.name)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    },
+                )
+            }
+
             Column {
                 if (!isStarted && isHost) {
                     Button(
@@ -177,12 +232,24 @@ fun BankoGameScreen(
                         modifier = Modifier
                             .height(48.dp)
                             .fillMaxWidth(),
-                        onClick = onBank,
+                        onClick = {
+                            val isHostControlSettingOn =
+                                uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean()
+                                    ?: false
+                            if (isHost && uiState.game?.players?.filter { it.hostCreated }
+                                    .isNullOrEmpty() || (isHostControlSettingOn && isHost)) {
+                                showPlayerPickerDialog.value = true
+                            } else {
+                                onBank(uiState.game!!.currentPlayer, listOf(uiState.playerName))
+                            }
+
+
+                        },
                     ) {
                         Text(text = "¡Banko!", style = MaterialTheme.typography.labelLarge)
                     }
                     Spacer(modifier = Modifier.height(48.dp))
-                    if (currentTurnsPlayer == selfPlayer) {
+                    if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)) {
                         FourByThreeBoxGrid(
                             rollNumber = uiState.game?.round?.roll ?: 0,
                             onManuallyEnteredDice = onManuallyEnteredDice
@@ -271,6 +338,14 @@ fun BankoGameScreen(
                         modifier = Modifier.size(200.dp), strokeWidth = 20.dp
                     )
                     Text(text = "Waiting for host to start game")
+                    val settings =
+                        uiState.game?.settings
+                    GameSettingsCheckboxList(
+                        settings = settings ?: emptyList(),
+                        onSettingChanged = onSettingChanged,
+                        isHost = isHost
+                    )
+
                 } else {
                     Text(text = "Round: ${uiState.game?.round?.roundNum} / ${uiState.game?.endRoundNum}")
                     Row(
@@ -301,8 +376,13 @@ fun BankoGameScreen(
                             )
                         }
                     }
-                    if (selfPlayer == currentTurnsPlayer) {
-                        Text(text = "It's your turn")
+                    if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)
+                    ) {
+                        if (selfPlayer == currentTurnsPlayer) {
+                            Text(text = "It's your turn")
+                        } else {
+                            Text(text = "It's ${currentTurnsPlayer?.name}'s turn")
+                        }
                         Button(onClick = { onDiceRolled() }) {
                             Text(text = "Roll Dice")
 
@@ -319,6 +399,56 @@ fun BankoGameScreen(
 
 }
 
+@Composable
+private fun GameSettingsCheckboxList(
+    modifier: Modifier = Modifier,
+    settings: List<Setting>,
+    onSettingChanged: (Setting) -> Unit = {},
+    isHost: Boolean = false
+) {
+    val filteredBooleanSettings = settings.filter { it.value == "true" || it.value == "false" }
+    Column(modifier = modifier) {
+        filteredBooleanSettings.forEach { setting ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .clickable(enabled = isHost) {
+                        onSettingChanged(
+                            Setting(
+                                setting.name,
+                                setting.value
+                                    .toBoolean()
+                                    .not()
+                                    .toString()
+                            )
+                        )
+                    }, // Add clickable modifier here
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = setting.name)
+                Checkbox(
+                    checked = setting.value.toBoolean(),
+                    onCheckedChange = { checkValue ->
+                        onSettingChanged(
+                            Setting(
+                                setting.name,
+                                setting.value
+                                    .toBoolean()
+                                    .not()
+                                    .toString()
+                            )
+                        )
+                    },
+                    enabled = isHost
+                )
+            }
+        }
+    }
+}
+
+
 private fun isPlayerActive(uiState: BankoGameScreenUiState, playerName: String): Boolean {
     return uiState.game?.round?.activeOrderedPlayerNames?.contains(playerName) ?: false
 }
@@ -329,13 +459,15 @@ private fun isPlayerActive(uiState: BankoGameScreenUiState, playerName: String):
 fun BankoGameScreenPreview() {
     BankoGameScreen(
         BankoGameScreenUiState(
-            "1234", "Bryan", DomainGame(
+            "1234", "Bryan",
+            DomainGame(
                 Timestamp.now(), joinCode = "1234", players = listOf(
                     Player("Bryan", 0),
                     Player("Sarah", 0),
                     Player("Maddie", 0),
                 ), round = null, host = "Bryan", currentPlayer = "Bryan"
-            )
-        )
+            ),
+        ),
+        onSettingChanged = {},
     )
 }

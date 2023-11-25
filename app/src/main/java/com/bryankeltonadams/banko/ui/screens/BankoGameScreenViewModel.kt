@@ -5,18 +5,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bryankeltonadams.banko.GameRepository
 import com.bryankeltonadams.banko.UserPreferencesRepository
+import com.bryankeltonadams.data.model.Player
+import com.bryankeltonadams.data.model.Round
+import com.bryankeltonadams.data.model.Setting
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import kotlin.random.Random
 
 @HiltViewModel
 class BankoGameScreenViewModel
-@Inject
-constructor(
+@Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val gameRepository: GameRepository
@@ -43,6 +46,36 @@ constructor(
 
     }
 
+    fun updatePlayerBankList(playerName: String) {
+        _uiState.value =
+            uiState.value.copy(bankList = _uiState.value.bankList.toMutableList().apply {
+                if (contains(playerName)) {
+                    remove(playerName)
+                } else {
+                    add(playerName)
+                }
+            })
+    }
+
+
+    fun onGlobalBankClicked() {
+        _uiState.value.game?.currentPlayer?.let {
+            onBank(
+                currentPlayer = it, playerNames = _uiState.value.bankList
+            )
+        }
+        _uiState.value = uiState.value.copy(bankList = emptyList())
+
+    }
+
+    fun onSettingChanged(setting: Setting) {
+        viewModelScope.launch {
+            gameRepository.updateSetting(
+                gameCode = _uiState.value.gameCode, settingToUpdate = setting
+            )
+        }
+    }
+
     fun onGameFinished() {
         viewModelScope.launch {
             gameRepository.deleteGame(_uiState.value.gameCode)
@@ -55,15 +88,16 @@ constructor(
         return dice1 to dice2
     }
 
-    fun onBank() {
+    fun onBank(currentPlayer: String, playerNames: List<String>) {
         viewModelScope.launch {
             gameRepository.bankPoints(
                 gameCode = _uiState.value.gameCode,
-                currentPlayer = _uiState.value.playerName,
+                currentPlayer = currentPlayer,
+                bankingPlayers = playerNames,
                 remainingPlayers = _uiState.value.game?.round?.activeOrderedPlayerNames?.minus(
-                    _uiState.value.playerName
+                    playerNames.toSet()
                 ) ?: emptyList(),
-                currentScore = _uiState.value.game?.round?.currentPoints ?: 0,
+                currentPoints = _uiState.value.game?.round?.currentPoints ?: 0,
                 fullOrderedPlayerList = _uiState.value.game?.orderedPlayerNames ?: emptyList(),
             )
 
@@ -77,48 +111,69 @@ constructor(
 
         viewModelScope.launch {
             val playerPosition =
-                _uiState.value.game?.orderedPlayerNames?.indexOf(_uiState.value.playerName)
-            // nextPlayerPosition taking into account end of array starting at 0 again
-            // check if playerPosition is last in array
-            val nextPlayerPosition =
-                if (playerPosition == _uiState.value.game?.orderedPlayerNames?.size?.minus(
-                        1
-                    )
-                ) {
-                    0
-                } else {
-                    playerPosition?.plus(1)
-                }
-            val nextPlayer = nextPlayerPosition?.let {
-                _uiState.value.game?.round?.activeOrderedPlayerNames?.getOrNull(
-                    it
-                ) ?: _uiState.value.game?.round?.activeOrderedPlayerNames?.get(0)
+                _uiState.value.game?.orderedPlayerNames?.indexOf(_uiState.value.game?.currentPlayer)
+            val nextPlayerPosition = (playerPosition?.plus(1)
+                ?: 0) % (_uiState.value.game?.round!!.activeOrderedPlayerNames.size)
+            val nextPlayer =
+                _uiState.value.game?.round?.activeOrderedPlayerNames?.getOrNull(nextPlayerPosition)
+                    ?: _uiState.value.game?.round?.activeOrderedPlayerNames?.get(0)
+
+
+            val isBeforeFirstThreeRolls = _uiState.value.game!!.round!!.roll <= 3
+            var cumulativeDiceValue = dieOne + dieTwo
+            if (manuallyEntered != null) {
+                cumulativeDiceValue = manuallyEntered
+            }
+            var pointValueToAdd = when {
+                isBeforeFirstThreeRolls && cumulativeDiceValue == 7 -> 70
+                !isBeforeFirstThreeRolls && cumulativeDiceValue == 7 -> 0
+                !isBeforeFirstThreeRolls && (dieOne == dieTwo || manuallyEntered == 13) -> _uiState.value.game?.round?.currentPoints
+                    ?: 0
+
+                else -> cumulativeDiceValue
             }
 
+            var finalRoundNum = _uiState.value.game?.round?.roundNum ?: 0
+            var finalRoll = _uiState.value.game?.round?.roll ?: 0
+            var finalActiveOrderedPlayerNames = _uiState.value.game?.round?.activeOrderedPlayerNames
+            var nextPlayerName = nextPlayer
+
+            if (pointValueToAdd == 0) {
+                finalRoundNum++
+                finalRoll = 1
+                finalActiveOrderedPlayerNames = _uiState.value.game?.orderedPlayerNames
+                val newNextPlayerPosition =
+                    (playerPosition?.plus(1) ?: 0) % (finalActiveOrderedPlayerNames!!.size)
+                nextPlayerName = finalActiveOrderedPlayerNames.getOrNull(newNextPlayerPosition)
+                    ?: finalActiveOrderedPlayerNames[0]
+            } else {
+                pointValueToAdd += _uiState.value.game?.round?.currentPoints!!
+                finalRoll++
+            }
+
+            val currentRound = Round(
+                finalRoundNum,
+                pointValueToAdd,
+                if (manuallyEntered != null) 0 else dieOne,
+                if (manuallyEntered != null) 0 else dieTwo,
+                finalRoll,
+                activeOrderedPlayerNames = finalActiveOrderedPlayerNames!!
+            )
             gameRepository.rollDice(
                 gameCode = _uiState.value.gameCode,
-                currentRoll = _uiState.value.game?.round?.roll ?: 0,
-                nextPlayer = nextPlayer!!,
-                dice = Pair(dieOne, dieTwo),
-                roundNum = _uiState.value.game?.round?.roundNum ?: 0,
-                currentScore = _uiState.value.game?.round?.currentPoints ?: 0,
-                activeOrderedPlayerNames = _uiState.value.game?.round?.activeOrderedPlayerNames
-                    ?: emptyList(),
-                fullOrderedPlayerNames = _uiState.value.game?.orderedPlayerNames ?: emptyList(),
-                manuallyEntered = manuallyEntered,
+                round = currentRound,
+                nextPlayerName = nextPlayerName!!
             )
         }
     }
 
     fun updatePlayerOrder() {
         viewModelScope.launch {
-            _uiState.value.game?.orderedPlayerNames?.reversed()
-                ?.let { reversed ->
-                    gameRepository.updatePlayerOrder(
-                        gameCode = _uiState.value.gameCode,
-                        reversed
-                    )
-                }
+            _uiState.value.game?.orderedPlayerNames?.reversed()?.let { reversed ->
+                gameRepository.updatePlayerOrder(
+                    gameCode = _uiState.value.gameCode, reversed
+                )
+            }
         }
     }
 

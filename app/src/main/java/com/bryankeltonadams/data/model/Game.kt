@@ -14,6 +14,7 @@ data class DomainGame(
     val orderedPlayerNames: List<String> = emptyList(),
     val host: String = "",
     val currentPlayer: String = "",
+    val settings: List<Setting> = emptyList(),
 )
 
 data class FirebaseGame(
@@ -24,6 +25,12 @@ data class FirebaseGame(
     val orderedPlayerNames: List<String> = emptyList(),
     val host: String = "",
     val currentPlayer: String = "",
+    val settings: List<Setting> = emptyList(),
+)
+
+data class Setting(
+    val name: String = "",
+    val value: String = "",
 )
 
 @Entity(
@@ -33,6 +40,7 @@ data class Player(
     @PrimaryKey
     val name: String = "",
     val points: Int = 0,
+    val hostCreated: Boolean = false,
 )
 
 data class Round(

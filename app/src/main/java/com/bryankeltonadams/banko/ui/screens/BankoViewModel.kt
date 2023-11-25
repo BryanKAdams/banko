@@ -40,10 +40,30 @@ class BankoStartScreenViewModel
         _bankoStartScreenUiState.value = _bankoStartScreenUiState.value.copy(gameCode = gameCode)
     }
 
+    private fun generateValidGameCode(): String {
+        var gameCode = generate5DigitAlphaNumericCode()
+        viewModelScope.launch {
+            var checkGameCode = gameRepository.gameExists(gameCode)
+            while (checkGameCode) {
+                gameCode = generate5DigitAlphaNumericCode()
+                checkGameCode = gameRepository.gameExists(gameCode)
+            }
+        }
+        return gameCode
+    }
+
+    private fun generate5DigitAlphaNumericCode(): String {
+        val allowedChars = ('A'..'Z') + ('0'..'9')
+        return (1..5)
+            .map { allowedChars.random() }
+            .joinToString("")
+    }
+
     fun createGame() {
         viewModelScope.launch {
             val userName = _bankoStartScreenUiState.value.userName
-            val gameCode = gameRepository.createGame(userName)
+            val gameCode =
+                gameRepository.createGame(gameCode = generateValidGameCode(), name = userName)
 
             userPreferencesRepository.setPreferences(userName, gameCode)
 

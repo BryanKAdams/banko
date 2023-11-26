@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
@@ -76,6 +77,7 @@ fun BankoGameScreen(
         onSettingChanged = bankoGameScreenViewModel::onSettingChanged,
         updatePlayerBankList = bankoGameScreenViewModel::updatePlayerBankList,
         onGlobalBankClicked = bankoGameScreenViewModel::onGlobalBankClicked,
+        addLocalPlayer = bankoGameScreenViewModel::addLocalPlayer,
     )
 }
 
@@ -129,6 +131,39 @@ fun FourByThreeBoxGrid(rollNumber: Int = 1, onManuallyEnteredDice: (Int) -> Unit
     }
 }
 
+@Composable
+fun AddPlayerDialog(
+    addLocalPlayer: (String) -> Unit = {},
+    onDismissRequest: () -> Unit = {}
+) {
+    val playerName = remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest, confirmButton = {
+            Button(
+                onClick = {
+                    addLocalPlayer(playerName.value)
+                }
+            ) {
+                Text(text = "Add Local Player")
+            }
+        },
+        title = {
+            Column {
+                Text(text = "Enter Players Name")
+            }
+        },
+        text = {
+            TextField(
+                value = playerName.value,
+                onValueChange = { playerName.value = it },
+                label = { Text(text = "Name") },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(text = "Name") },
+            )
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,9 +178,12 @@ fun BankoGameScreen(
     onSettingChanged: (Setting) -> Unit,
     updatePlayerBankList: (String) -> Unit = {},
     onGlobalBankClicked: () -> Unit = {},
+    addLocalPlayer: (String) -> Unit = {},
 ) {
 
     val showPlayerPickerDialog = remember { mutableStateOf(false) }
+
+    val showAddPlayerDialog = remember { mutableStateOf(false) }
 
     if (uiState.game?.round?.roundNum != null && uiState.game.round.roundNum > uiState.game.endRoundNum) {
         LaunchedEffect(Unit) {
@@ -212,6 +250,16 @@ fun BankoGameScreen(
                             }
                         }
                     },
+                )
+            }
+
+            if (showAddPlayerDialog.value) {
+                AddPlayerDialog(
+                    addLocalPlayer = { playerName ->
+                        addLocalPlayer(playerName)
+                        showAddPlayerDialog.value = false
+                    },
+                    onDismissRequest = { showAddPlayerDialog.value = false }
                 )
             }
 
@@ -345,6 +393,12 @@ fun BankoGameScreen(
                         onSettingChanged = onSettingChanged,
                         isHost = isHost
                     )
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { showAddPlayerDialog.value = true }) {
+                        Text(text = "Add Local Player")
+                    }
 
                 } else {
                     Text(text = "Round: ${uiState.game?.round?.roundNum} / ${uiState.game?.endRoundNum}")

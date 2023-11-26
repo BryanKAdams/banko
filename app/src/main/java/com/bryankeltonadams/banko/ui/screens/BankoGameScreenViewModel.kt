@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bryankeltonadams.banko.GameRepository
 import com.bryankeltonadams.banko.UserPreferencesRepository
+import com.bryankeltonadams.data.model.Player
 import com.bryankeltonadams.data.model.Round
 import com.bryankeltonadams.data.model.Setting
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +43,17 @@ class BankoGameScreenViewModel
             }
         }
 
+    }
+
+    fun addLocalPlayer(playerName: String) {
+        gameRepository.addPlayer(
+            gameCode = _uiState.value.gameCode,
+            player = Player(
+                name = playerName,
+                points = 0,
+                hostCreated = true
+            )
+        )
     }
 
     fun updatePlayerBankList(playerName: String) {

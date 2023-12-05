@@ -68,8 +68,8 @@ class BankoStartScreenViewModel
             userPreferencesRepository.setPreferences(userName, gameCode)
 
             _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(
-                gameCode = gameCode,
-                joinedGameIsValid = true
+                joinedGameIsValid = true,
+                joinedGameCode = gameCode
             )
         }
     }
@@ -80,16 +80,18 @@ class BankoStartScreenViewModel
 
     fun joinGame() {
         viewModelScope.launch {
-            if (gameRepository.gameExists(_bankoStartScreenUiState.value.gameCode)) {
+            _bankoStartScreenUiState.value.joinedGameCode = _bankoStartScreenUiState.value.gameCode
+            _bankoStartScreenUiState.value.gameCode = ""
+            if (gameRepository.gameExists(_bankoStartScreenUiState.value.joinedGameCode)) {
                 val player =
                     Player(_bankoStartScreenUiState.value.userName, 0)
                 gameRepository.addPlayer(
                     player,
-                    _bankoStartScreenUiState.value.gameCode
+                    _bankoStartScreenUiState.value.joinedGameCode
                 )
                 userPreferencesRepository.setPreferences(
                     _bankoStartScreenUiState.value.userName,
-                    _bankoStartScreenUiState.value.gameCode
+                    _bankoStartScreenUiState.value.joinedGameCode
                 )
                 _bankoStartScreenUiState.value = bankoStartScreenUiState.value.copy(
                     joinedGameIsValid = true

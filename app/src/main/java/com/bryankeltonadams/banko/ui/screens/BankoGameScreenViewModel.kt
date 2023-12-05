@@ -9,6 +9,7 @@ import com.bryankeltonadams.data.model.Player
 import com.bryankeltonadams.data.model.Round
 import com.bryankeltonadams.data.model.Setting
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -88,6 +89,8 @@ class BankoGameScreenViewModel
 
     fun onGameFinished() {
         viewModelScope.launch {
+            gameRepository.finishGame(_uiState.value.gameCode)
+            delay(2000)
             gameRepository.deleteGame(_uiState.value.gameCode)
         }
     }

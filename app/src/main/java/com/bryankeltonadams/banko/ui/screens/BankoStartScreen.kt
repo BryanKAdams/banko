@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -38,7 +39,8 @@ import androidx.compose.ui.unit.sp
 
 data class BankoStartScreenUiState(
     val userName: String = "",
-    val gameCode: String = "",
+    var gameCode: String = "",
+    var joinedGameCode: String = "",
     val errorMessage: String? = null,
     val joinedGameIsValid: Boolean = false,
 )
@@ -70,7 +72,7 @@ fun BankoStartScreen(
     LaunchedEffect(joinedGameIsValid) {
         if (joinedGameIsValid) {
             bankoStartScreenViewModel.resetGameValidity()
-            navigateToGame(bankoStartScreenUiState.gameCode)
+            navigateToGame(bankoStartScreenUiState.joinedGameCode)
         }
     }
 
@@ -92,67 +94,78 @@ fun RulesBottomSheet(bottomSheetState: SheetState, onDismissRequest: () -> Unit 
         onDismissRequest = onDismissRequest,
         sheetState = bottomSheetState
     ) {
-        val verticalScrollState = remember { androidx.compose.foundation.lazy.LazyListState() }
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .scrollable(orientation = Orientation.Vertical, state = verticalScrollState)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 48.sp, text = "¡Banko! Rules",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp,
-                text = "Players:\n" +
-                        "2 or more",
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 48.sp, text = "¡Banko! Rules",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp,
+                    text = "Players:\n" +
+                            "2 or more",
 
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp,
-                text = "How to Win:\n" + "The player with the most BANKO points by the end of the game wins!",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp,
-                text = "How to Play:\n" +
-                        "Players take turns rolling two dice, adding the total value of the dice to the round's total score. In the first three turns of each round, 7s are worth 70 points, and doubles are worth only their face value. After the 3rd roll, a 7 ends the round, but doubles now DOUBLE the point total! Players keep rolling or banking until someone rolls a 7 or all players have banked. \n",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp,
-                text = "Calling “BANKO”" + "\n" +
-                        "Anyone can call “BANKO” to lock in their points and at any point in the game. Once you call BANKO you can no longer roll dice or score points until the next round.",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp, text = "5. If you win, you will be given a new card",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 18.sp, text = "6. The first person to win 5 times wins the game!",
-                textAlign = TextAlign.Center,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Default
-            )
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp,
+                    text = "How to Win:\n" + "The player with the most BANKO points by the end of the game wins!",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp,
+                    text = "How to Play:\n" +
+                            "Players take turns rolling two dice, adding the total value of the dice to the round's total score. In the first three turns of each round, 7s are worth 70 points, and doubles are worth only their face value. After the 3rd roll, a 7 ends the round, but doubles now DOUBLE the point total! Players keep rolling or banking until someone rolls a 7 or all players have banked. \n",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp,
+                    text = "Calling “BANKO”" + "\n" +
+                            "Anyone can call “BANKO” to lock in their points and at any point in the game. Once you call BANKO you can no longer roll dice or score points until the next round.",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp, text = "5. If you win, you will be given a new card",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
+            item {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 18.sp, text = "6. The first person to win 5 times wins the game!",
+                    textAlign = TextAlign.Center,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Default
+                )
+            }
         }
-
     }
 }
 

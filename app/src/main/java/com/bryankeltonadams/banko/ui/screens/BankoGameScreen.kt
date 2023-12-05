@@ -59,6 +59,7 @@ data class BankoGameScreenUiState(
     val playerName: String = "",
     val game: DomainGame? = null,
     val bankList: List<String> = emptyList(),
+    val isFinished: Boolean = false,
 )
 
 @Composable
@@ -72,7 +73,8 @@ fun BankoGameScreen(
         updatePlayerOrder = bankoGameScreenViewModel::updatePlayerOrder,
         onDiceRolled = bankoGameScreenViewModel::onDiceRolled,
         onBank = bankoGameScreenViewModel::onBank,
-        onGameFinished = { bankoGameScreenViewModel.onGameFinished(); navigateBack() },
+        navigateBack = navigateBack,
+        onGameFinished = { bankoGameScreenViewModel.onGameFinished() },
         onManuallyEnteredDice = bankoGameScreenViewModel::onDiceRolled,
         onSettingChanged = bankoGameScreenViewModel::onSettingChanged,
         updatePlayerBankList = bankoGameScreenViewModel::updatePlayerBankList,
@@ -173,6 +175,7 @@ fun BankoGameScreen(
     updatePlayerOrder: () -> Unit = {},
     onDiceRolled: () -> Unit = {},
     onBank: (String, List<String>) -> Unit = { s: String, strings: List<String> -> },
+    navigateBack: () -> Unit = {},
     onGameFinished: () -> Unit = {},
     onManuallyEnteredDice: (Int) -> Unit = {},
     onSettingChanged: (Setting) -> Unit,
@@ -185,11 +188,12 @@ fun BankoGameScreen(
 
     val showAddPlayerDialog = remember { mutableStateOf(false) }
 
-    if (uiState.game?.round?.roundNum != null && uiState.game.round.roundNum > uiState.game.endRoundNum) {
+    if (uiState.game?.finished == true) {
         LaunchedEffect(Unit) {
-            onGameFinished()
+            navigateBack()
         }
     }
+
     val selfPlayer = uiState.game?.players?.firstOrNull { it.name == uiState.playerName }
     val hostPlayer = uiState.game?.host?.let { host ->
         uiState.game.players.firstOrNull { it.name == host }
@@ -228,7 +232,30 @@ fun BankoGameScreen(
                     title = { Text(text = "Pick a player to ¡Banko! for") },
                     text = {
                         Column {
-                            uiState.game?.players?.forEach { player ->
+                            val nonBankedPlayersThatHostCreated =
+                                uiState.game?.players?.filter {
+                                    uiState.game.round?.activeOrderedPlayerNames!!.contains(
+                                        it.name
+                                    )
+                                }!!.filter { it.hostCreated }
+
+                            val nonBankedPlayers = uiState.game.players.filter {
+                                uiState.game.round?.activeOrderedPlayerNames!!.contains(
+                                    it.name
+                                )
+                            }
+                            val playersToUse: List<Player> = if (uiState.game.settings.contains(
+                                    Setting(
+                                        "Host can roll or bank for other players with devices.",
+                                        "true"
+                                    )
+                                )
+                            ) {
+                                nonBankedPlayers
+                            } else {
+                                nonBankedPlayersThatHostCreated
+                            }
+                            playersToUse.forEach { player ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -274,39 +301,62 @@ fun BankoGameScreen(
                     }
 
                 }
-                if (isStarted) {
-                    Button(
-                        enabled = isPlayerActive(uiState, uiState.playerName),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .fillMaxWidth(),
-                        onClick = {
-                            val isHostControlSettingOn =
-                                uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean()
-                                    ?: false
-                            if (isHost && uiState.game?.players?.filter { it.hostCreated }
-                                    .isNullOrEmpty() || (isHostControlSettingOn && isHost)) {
-                                showPlayerPickerDialog.value = true
-                            } else {
-                                onBank(uiState.game!!.currentPlayer, listOf(uiState.playerName))
-                            }
+                val isHostControlSettingOn =
+                    uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean()
+                        ?: false
+
+                val isPlayerActive = isPlayerActive(uiState, uiState.playerName)
+
+                if (uiState.game?.round != null) {
+
+                    val playersWithHostControlThatAreActive =
+                        uiState.game?.players?.filter { it.hostCreated }?.map { it.name }
+                            ?.intersect(
+                                uiState.game.round?.activeOrderedPlayerNames!!.toSet()
+                            )?.toList() ?: emptyList()
+
+                    if (isStarted && uiState.game?.round?.roundNum!! <= uiState.game.endRoundNum) {
+                        Button(
+                            enabled = isPlayerActive || ((isHostControlSettingOn && isHost) || (isHost && playersWithHostControlThatAreActive.isNotEmpty())),
+                            modifier = Modifier
+                                .height(48.dp)
+                                .fillMaxWidth(),
+                            onClick = {
+                                if (isHost && uiState.game.players.any { it.hostCreated } || (isHostControlSettingOn && isHost)) {
+                                    showPlayerPickerDialog.value = true
+                                } else {
+                                    onBank(uiState.game.currentPlayer, listOf(uiState.playerName))
+                                }
 
 
-                        },
-                    ) {
-                        Text(text = "¡Banko!", style = MaterialTheme.typography.labelLarge)
-                    }
-                    Spacer(modifier = Modifier.height(48.dp))
-                    if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)) {
-                        FourByThreeBoxGrid(
-                            rollNumber = uiState.game?.round?.currentRoll ?: 0,
-                            onManuallyEnteredDice = onManuallyEnteredDice
-                        )
+                            },
+                        ) {
+                            Text(text = "¡Banko!", style = MaterialTheme.typography.labelLarge)
+                        }
+                        Spacer(modifier = Modifier.height(48.dp))
+                        if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)) {
+                            FourByThreeBoxGrid(
+                                rollNumber = uiState.game?.round?.currentRoll ?: 0,
+                                onManuallyEnteredDice = onManuallyEnteredDice
+                            )
+
+                        }
+                    } else if (isHost && uiState.game.round.roundNum > uiState.game.endRoundNum) {
+                        Button(
+                            modifier = Modifier
+                                .height(48.dp)
+                                .fillMaxWidth(),
+                            onClick = {
+                                onGameFinished()
+                            },
+                        ) {
+                            Text(text = "Finish Game", style = MaterialTheme.typography.labelLarge)
+                        }
 
                     }
                 }
             }
-        },
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -394,14 +444,16 @@ fun BankoGameScreen(
                         isHost = isHost
                     )
 
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { showAddPlayerDialog.value = true }) {
-                        Text(text = "Add Local Player")
+                    if (isHost) {
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { showAddPlayerDialog.value = true }) {
+                            Text(text = "Add Local Player")
+                        }
                     }
 
-                } else {
-                    Text(text = "Round: ${uiState.game?.round?.roundNum} / ${uiState.game?.endRoundNum}")
+                } else if (uiState.game!!.round!!.roundNum <= uiState.game.endRoundNum) {
+                    Text(text = "Round: ${uiState.game.round?.roundNum} / ${uiState.game.endRoundNum}")
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(
                             16.dp, Alignment.CenterHorizontally
@@ -430,7 +482,7 @@ fun BankoGameScreen(
                             )
                         }
                     }
-                    if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game?.settings?.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true)
+                    if (selfPlayer == currentTurnsPlayer || (isHost && uiState.game.settings.firstOrNull { it.name == "Host can roll or bank for other players with devices." }?.value?.toBoolean() == true) || (currentTurnsPlayer?.hostCreated == true && isHost)
                     ) {
                         if (selfPlayer == currentTurnsPlayer) {
                             Text(text = "It's your turn")
@@ -444,8 +496,11 @@ fun BankoGameScreen(
                     } else {
                         Text(text = "It's ${currentTurnsPlayer?.name}'s turn")
                     }
-                    Text(text = uiState.game?.round?.currentPoints.toString())
+                    Text(text = uiState.game.round?.currentPoints.toString())
 
+                } else {
+                    Text(text = "Game Over")
+                    Text(text = "Winner: ${uiState.game.players.maxByOrNull { it.points }?.name}")
                 }
             }
         }

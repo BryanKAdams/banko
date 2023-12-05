@@ -15,6 +15,7 @@ data class DomainGame(
     val host: String = "",
     val currentPlayer: String = "",
     val settings: List<Setting> = emptyList(),
+    val finished : Boolean = false,
 )
 
 data class FirebaseGame(
@@ -26,6 +27,7 @@ data class FirebaseGame(
     val host: String = "",
     val currentPlayer: String = "",
     val settings: List<Setting> = emptyList(),
+    val finished : Boolean = false,
 )
 
 data class Setting(

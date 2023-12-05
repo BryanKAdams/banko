@@ -34,6 +34,12 @@ class GameRepository(
         gameDocRef.delete().await()
     }
 
+    suspend fun finishGame(gameCode: String) {
+        val gameDocRef = db.collection("games").document(gameCode)
+
+        gameDocRef.update("finished", true).await()
+    }
+
     suspend fun updateSetting(gameCode: String, settingToUpdate: Setting) {
         val gameDocRef = db.collection("games").document(gameCode)
 
@@ -143,6 +149,7 @@ class GameRepository(
         val player = Player(
             name = name,
             points = 0,
+            hostCreated = true
         )
 
 
@@ -221,7 +228,8 @@ class GameRepository(
             orderedPlayerNames = firebaseGame.orderedPlayerNames,
             host = firebaseGame.host,
             currentPlayer = firebaseGame.currentPlayer,
-            settings = firebaseGame.settings
+            settings = firebaseGame.settings,
+            finished = firebaseGame.finished
         )
     }
 

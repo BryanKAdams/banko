@@ -19,7 +19,7 @@ val provider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs
 )
 
-val fontName = GoogleFont("Luckiest Guy")
+val fontName = GoogleFont("Paytone One")
 
 val fontFamily = FontFamily(
     Font(
